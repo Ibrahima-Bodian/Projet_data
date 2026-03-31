@@ -1,0 +1,18 @@
+Partie = identifiant de la partie jouée
+Player name -> utilisateur = nom du joueur
+Player score -> score finale = score du joueur a la fin de la partie
+Player timestamp -> temps_jeu = durée de la partie
+
+Tour = identifiant du tour de la Partie
+Level = niveau au début du Tour
+Score = score du joueur au début du tour
+Full lines =  nombre de lignes complétées par le joueur
+
+STATISTICS -> Statistiques = Stats sur les actions effectuées
+Shape(0-6) = Compteur d'apparitions des différentes formes (shape) au cours de la partie jusqu'au tour en cours
+Sum = somme des formes apparues
+Score = score jusqu'au tour en cours
+Score ration = ???????
+Efficiency = efficacités des placements de formes du joueur
+
+Actions = différentes actions effectuées sur la forme (déplacements droite-gauche, rotation, down (accélérer la chute de la forme), drop (faire tomber la forme instantanément))
