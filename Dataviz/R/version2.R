@@ -844,7 +844,7 @@ server <- function(input, output, session) {
         ggplot(aes(factor(game_id), lignes_total, fill = factor(niveau_max))) +
         geom_col(width = 0.72) +
         scale_fill_manual(
-          values = c("1"=COL_J,"2"=COL_I,"3"=COL_S,"4"=COL_O,"5"=COL_T,"6"=COL_Z),
+          values = c("1"=COL_J,"2"=COL_I,"3"=COL_S,"4"=COL_O,"5"=COL_T,"6"=COL_Z,"7"="#546E7A","8"="#37474F","9"="#263238"),
           name = "Niveau max") +
         scale_y_continuous(expand = expansion(mult = c(0, .1))) +
         labs(x = "Partie", y = "Lignes complétées") +
@@ -920,7 +920,7 @@ server <- function(input, output, session) {
                     method = "lm", se = FALSE, inherit.aes = FALSE,
                     color = "#C62828", linewidth = 1.4, linetype = "dashed") +
         scale_color_manual(
-          values = c("1"=COL_J,"2"=COL_I,"3"=COL_S,"4"=COL_O,"5"=COL_T,"6"=COL_Z),
+          values = c("1"=COL_J,"2"=COL_I,"3"=COL_S,"4"=COL_O,"5"=COL_T,"6"=COL_Z,"7"="#546E7A","8"="#37474F","9"="#263238"),
           name = "Niveau") +
         scale_size_continuous(name = "Nb tours", range = c(4, 12)) +
         scale_y_continuous(labels = scales::comma) +
