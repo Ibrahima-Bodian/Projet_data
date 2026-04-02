@@ -5,10 +5,7 @@ library(shiny)
 library(ggplot2)
 library(plotly)
 library(dplyr)
-library(ggimage)
-library(tidyr)
-library(viridis)
-#install.packages("ggimage")
+
 # 1. CHARGEMENT ET PRÉPARATION DES DONNÉES
 # Connexion à l'API FastAPI (doit être lancée avec: uvicorn src.main:app --reload)
 library(httr)
@@ -191,15 +188,7 @@ TABS <- list(
          list(id = "p_freq", label = "Fréquence",
               sub = "Distribution des 7 pièces Tetris sur toutes les parties"),
          list(id = "p_perf", label = "Performance",
-              sub = "Score ratio moyen selon le type de pièce reçue"),
-         list(id = "p_actions_piece", label = "Actions par pièce",
-              sub = "Répartition des actions par type de pièce")
-       )
-  ),
-  list(id = "guide", label = "Guide",
-       plots = list(
-         list(id = "p_guide", label = "Explication des graphiques",
-              sub = "Description et interpr\u00e9tation de chaque visualisation")
+              sub = "Score ratio moyen selon le type de pièce reçue")
        )
   )
 )
@@ -604,7 +593,7 @@ ui <- fluidPage(
         flex:1; background:#fff; border-radius:14px;
         border:1px solid #DDE3EE;
         box-shadow:0 2px 16px rgba(30,42,58,.06);
-        padding:16px 20px; min-height:0; overflow:auto;
+        padding:16px 20px; min-height:0; overflow:hidden;
       }
  
       /* Style du sélecteur de partie */
@@ -615,13 +604,6 @@ ui <- fluidPage(
         font-size:13px !important; font-weight:600 !important;
         padding:7px 14px !important;
       }
-
-      /* Guide des graphiques */
-      .guide-page { font-family:"Nunito",sans-serif; color:#3A4560; }
-      .guide-page h2 { font-size:20px; font-weight:800; color:#1E2A3A; margin:20px 0 10px; border-bottom:2px solid #DDE3EE; padding-bottom:8px; }
-      .guide-page h3 { font-size:15px; font-weight:700; color:#1565C0; margin:14px 0 4px; }
-      .guide-page p  { font-size:13px; line-height:1.7; color:#5A6478; margin-bottom:10px; }
-      .guide-page .guide-tab { font-size:12px; font-weight:800; color:#6A1B9A; letter-spacing:1px; margin-top:20px; }
     '))
   ),
   
@@ -697,19 +679,9 @@ ui <- fluidPage(
             )
           ),
           
-          # Carte contenant le graphique
+          # Carte contenant le graphique ggplot
           div(class = "chart-card",
-              conditionalPanel("input.active_plot != 'p_actions_piece' && input.active_plot != 'p_guide'",
-                  plotlyOutput("main_plot", height = "100%", width = "100%")
-              ),
-              conditionalPanel("input.active_plot == 'p_actions_piece'",
-                  plotOutput("static_plot", height = "500px", width = "100%")
-              ),
-              conditionalPanel("input.active_plot == 'p_guide'",
-                  div(style = "overflow-y:auto; height:100%; padding:10px 20px;",
-                      uiOutput("guide_content")
-                  )
-              )
+              plotlyOutput("main_plot", height = "100%", width = "100%")
           )
       )
   ),
@@ -811,17 +783,18 @@ server <- function(input, output, session) {
   # --- Rendu du graphique principal ---
   output$main_plot <- renderPlotly({
     id <- active_plot()
-    req(!(id %in% c("p_actions_piece", "p_guide")))
     
     # Graphique 1 : Score final par partie
     if (id == "p_scores") {
       p <- by_game %>%
         mutate(col = score_color(score_final)) %>%
-        ggplot(aes(factor(game_id), score_final, fill = col,
-                   text = paste0("Partie ", game_id, "\nScore : ", format(score_final, big.mark = " ")))) +
+        ggplot(aes(factor(game_id), score_final, fill = col)) +
         geom_col(width = 0.72) +
+        geom_text(aes(label = ifelse(score_final > 50,
+                                     format(score_final, big.mark = " "), "")),
+                  vjust = -0.4, color = "#1E2A3A", size = 4, fontface = "bold") +
         scale_fill_identity() +
-        scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, .08))) +
+        scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, .12))) +
         labs(x = "Numéro de partie", y = "Score final") +
         theme_tetris()
       ggplotly(p, tooltip = "text") %>% layout(plot_bgcolor = "transparent", paper_bgcolor = "transparent")
@@ -958,94 +931,6 @@ server <- function(input, output, session) {
         theme_tetris()
       ggplotly(p) %>% layout(plot_bgcolor = "transparent", paper_bgcolor = "transparent")
     }
-  })
-  
-  # --- Rendu du graphique statique (Actions par pièce avec images) ---
-  output$static_plot <- renderPlot({
-    req(active_plot() == "p_actions_piece")
-    
-    img_dir <- normalizePath("C:/Users/ibodi/OneDrive/Documents/Projet_tint/Projet_data/Dataviz/R", winslash = "/")
-    piece_images <- data.frame(
-      shape_id = 0:6,
-      img = file.path(img_dir, c("CAP_Z_Gauche.png", "CAP_Z_droit.png", "CAP_T2.png",
-                                  "CAP_carre.png", "CAP_L_droit.png", "CAP_L_gauche.png",
-                                  "CAP_barre1.png")),
-      stringsAsFactors = FALSE
-    )
-    
-    action_long <- df %>%
-      select(shape_id, num_move_left, num_move_right, num_down, num_rotate, num_drop) %>%
-      tidyr::pivot_longer(cols = c(num_move_left, num_move_right, num_down, num_rotate, num_drop),
-                          names_to = "action", values_to = "count") %>%
-      mutate(action = gsub("num_move_", "", gsub("num_", "", action))) %>%
-      group_by(shape_id, action) %>%
-      summarise(count = sum(count, na.rm = TRUE), .groups = "drop") %>%
-      filter(!is.na(shape_id))
-    
-    action_long <- action_long %>%
-      left_join(piece_images, by = "shape_id") %>%
-      mutate(piece = SHAPES[shape_id + 1])
-    
-    y_max <- max(action_long$count)
-    
-    ggplot(action_long, aes(x = factor(shape_id), y = count, fill = action)) +
-      geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-      scale_fill_viridis_d(option = "C", labels = c("down" = "Bas", "drop" = "Drop",
-                                                     "left" = "Gauche", "right" = "Droite", "rotate" = "Rotation")) +
-      scale_x_discrete(labels = SHAPES) +
-      labs(x = "", y = "Nombre d'actions", fill = "Action") +
-      theme_tetris(legend_pos = "right") +
-      theme(
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        plot.margin = margin(t = 10, r = 20, b = 80, l = 10)
-      ) +
-      coord_cartesian(ylim = c(-0.2 * y_max, y_max), clip = "off") +
-      geom_image(
-        data = piece_images %>% mutate(y_pos = -0.12 * y_max),
-        aes(x = factor(shape_id), y = y_pos, image = img),
-        inherit.aes = FALSE,
-        size = 0.06,
-        asp = 1
-      )
-  })
-  
-  # --- Contenu de la page Guide ---
-  output$guide_content <- renderUI({
-    req(active_plot() == "p_guide")
-    div(class = "guide-page",
-      h2("Guide des graphiques"),
-      
-      div(class = "guide-tab", "ONGLET \u2014 VUE G\u00c9N\u00c9RALE"),
-      h3("Score par partie"),
-      p("Ce graphique montre le score final obtenu pour chaque partie. Les barres sont color\u00e9es selon le niveau de performance : en cyan pour les scores au-dessus de 2 000, vert au-dessus de 800, orange au-dessus de 200 et rouge en dessous. Au survol, le score exact s'affiche."),
-      h3("Dur\u00e9e vs Score"),
-      p("Chaque point repr\u00e9sente une partie, avec la dur\u00e9e en abscisse et le score en ordonn\u00e9e. La droite en pointill\u00e9s rouges donne la tendance : est-ce que jouer plus longtemps donne un meilleur score ? On peut voir si la relation est forte ou pas."),
-      h3("Lignes compl\u00e9t\u00e9es"),
-      p("Le nombre de lignes compl\u00e9t\u00e9es par partie, avec une couleur diff\u00e9rente selon le niveau max atteint. Plus on compl\u00e8te de lignes, plus on gagne de points \u2014 c'est un indicateur direct de l'efficacit\u00e9 du joueur."),
-      
-      div(class = "guide-tab", "ONGLET \u2014 PROGRESSION"),
-      h3("\u00c9volution du score"),
-      p("On suit le score cumul\u00e9 tour par tour pour une partie donn\u00e9e. Les points jaunes marquent les tours o\u00f9 des lignes ont \u00e9t\u00e9 compl\u00e9t\u00e9es. On rep\u00e8re les phases de progression rapide et les moments de stagnation."),
-      h3("Score ratio / tour"),
-      p("Le score ratio traduit la qualit\u00e9 du jeu \u00e0 chaque tour. Si la droite de tendance monte, le joueur s'am\u00e9liore au fil de la partie. Si elle descend, il perd en efficacit\u00e9."),
-      
-      div(class = "guide-tab", "ONGLET \u2014 COMPORTEMENT"),
-      h3("Actions par tour"),
-      p("Le nombre moyen de chaque type d'action par tour : d\u00e9placements gauche et droite, rotations, drops, descentes, inactions. Ca donne une id\u00e9e du style de jeu du joueur."),
-      h3("Taux de drop"),
-      p("Le pourcentage de tours o\u00f9 le joueur utilise le drop (la pose rapide). Un taux \u00e9lev\u00e9 (barres vertes) montre un joueur d\u00e9cisif. Un taux faible (barres rouges) indique plut\u00f4t de l'h\u00e9sitation."),
-      h3("Inaction vs Score"),
-      p("On croise ici le niveau d'inaction moyen avec le score final. La taille des bulles d\u00e9pend du nombre de tours jou\u00e9s et la couleur du niveau atteint. La droite rouge montre si l'inaction impacte le score."),
-      
-      div(class = "guide-tab", "ONGLET \u2014 PI\u00c8CES"),
-      h3("Fr\u00e9quence"),
-      p("La r\u00e9partition des 7 pi\u00e8ces Tetris (I, J, L, O, S, T, Z) sur toutes les parties. En th\u00e9orie, la distribution devrait \u00eatre \u00e0 peu pr\u00e8s uniforme."),
-      h3("Performance"),
-      p("Le score ratio moyen selon la pi\u00e8ce re\u00e7ue. Ca permet de voir avec quelle pi\u00e8ce le joueur s'en sort le mieux et lesquelles lui posent davantage de difficult\u00e9s."),
-      h3("Actions par pi\u00e8ce"),
-      p("La r\u00e9partition des diff\u00e9rentes actions (gauche, droite, bas, rotation, drop) pour chaque type de pi\u00e8ce. Les images en bas montrent les pi\u00e8ces correspondantes. On observe si certaines pi\u00e8ces n\u00e9cessitent plus de rotations ou de d\u00e9placements.")
-    )
   })
 }
 
